@@ -1059,7 +1059,7 @@ def decodeExtendedKey(netParams, cryptoKey, key):
 
 DEFAULT_KDF_PARAMS = {
     "func": "pbkdf2_hmac",
-    "hash_name": "sha256",
+    "hash_name": "sha512",
     "iterations": 100000,
 }
 
@@ -1080,11 +1080,16 @@ def defaultKDFParams():
 class KDFParams:
     """
     Parameters for the key derivation function, including the function used.
+    As of now, the KDF parameters must yield a 64-byte key.
+
+    Args:
+        salt (ByteArray): A salt.
+        auth (ByteArray): An authentication hash.
     """
 
-    def __init__(self, salt, digest):
+    def __init__(self, salt, auth):
         self.salt = salt
-        self.digest = digest
+        self.auth = auth
         func, hn, its = defaultKDFParams()
         self.kdfFunc = func
         self.hashName = hn
@@ -1098,7 +1103,7 @@ class KDFParams:
             .addData(params.kdfFunc.encode("utf-8"))
             .addData(params.hashName.encode("utf-8"))
             .addData(params.salt)
-            .addData(params.digest)
+            .addData(params.auth)
             .addData(params.iterations)
             .b
         )
@@ -1112,7 +1117,7 @@ class KDFParams:
         if len(d) != 5:
             raise AssertionError("wrong push count. expected 5, got %d" % len(d))
 
-        params = KDFParams(salt=ByteArray(d[2]), digest=ByteArray(d[3]))
+        params = KDFParams(salt=ByteArray(d[2]), auth=ByteArray(d[3]))
 
         params.kdfFunc = d[0].decode("utf-8")
         params.hashName = d[1].decode("utf-8")
@@ -1145,11 +1150,10 @@ class SecretKey:
         salt = rando.newKey()
         b = lambda v: ByteArray(v).bytes()
         _, hashName, iterations = defaultKDFParams()
-        self.key = ByteArray(
-            hashlib.pbkdf2_hmac(hashName, b(pw), salt.bytes(), iterations)
-        )
-        digest = ByteArray(hashlib.sha256(self.key.b).digest())
-        self.keyParams = KDFParams(salt, digest)
+        b = ByteArray(hashlib.pbkdf2_hmac(hashName, b(pw), salt.bytes(), iterations))
+        self.key = b[:32]
+        auth = ByteArray(hashlib.sha256(b[32:].b).digest())
+        self.keyParams = KDFParams(salt, auth)
 
     def params(self):
         """
@@ -1204,14 +1208,15 @@ class SecretKey:
         func = kp.kdfFunc
         if func != "pbkdf2_hmac":
             raise DecredError("unknown key derivation function")
-        sk.key = ByteArray(
+        b = ByteArray(
             hashlib.pbkdf2_hmac(
                 kp.hashName, bytes(password), bytes(kp.salt), kp.iterations
             )
         )
-        checkDigest = ByteArray(hashlib.sha256(sk.key.b).digest())
-        if checkDigest != kp.digest:
-            raise DecredError("rekey digest check failed")
+        sk.key = b[:32]
+        checkAuth = ByteArray(hashlib.sha256(b[32:].b).digest())
+        if checkAuth != kp.auth:
+            raise DecredError("rekey auth check failed")
         return sk
 
 

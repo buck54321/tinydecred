@@ -122,14 +122,14 @@ class TestCrypto(unittest.TestCase):
 
     def test_kdf_params(self):
         salt = rando.newHash()
-        digest = ByteArray(32)
-        kdf = crypto.KDFParams(salt, digest)
+        auth = ByteArray(32)
+        kdf = crypto.KDFParams(salt, auth)
         b = kdf.serialize()
         reKDF = crypto.KDFParams.unblob(b.b)
         self.assertEqual(kdf.kdfFunc, reKDF.kdfFunc)
         self.assertEqual(kdf.hashName, reKDF.hashName)
         self.assertEqual(kdf.salt, reKDF.salt)
-        self.assertEqual(kdf.digest, reKDF.digest)
+        self.assertEqual(kdf.auth, reKDF.auth)
         self.assertEqual(kdf.iterations, reKDF.iterations)
 
     def test_secret_key(self):
