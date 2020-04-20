@@ -13,16 +13,26 @@ The shared library can also be built manually using the command:
 
 $ cythonize -X language_level=3 -a -i ./decred/crypto/secp256k1/field.py
 """
+from distutils.command.build_ext import build_ext
 
-# fmt: off
-try:
-    from Cython.Build import cythonize
-except ImportError:
-    def build(setup_kwargs):
-        pass
-else:
-    def build(setup_kwargs):
+
+class BuildExt(build_ext):
+    def build_extensions(self):
+        try:
+            super().build_extensions()
+        except Exception:
+            pass
+
+
+def build(setup_kwargs):
+    try:
+        from Cython.Build import cythonize
+
         setup_kwargs.update(
-            {"ext_modules": cythonize(["decred/crypto/secp256k1/field.py"])}
+            dict(
+                ext_modules=cythonize(["decred/crypto/secp256k1/field.py"]),
+                cmdclass=dict(build_ext=BuildExt),
+            )
         )
-# fmt: on
+    except Exception:
+        pass
