@@ -669,18 +669,21 @@ def decodeExtendedKey(netParams, cryptoKey, key):
     Returns:
         ExtendedKey: The decoded key.
     """
-    decoded = decrypt(cryptoKey, key)
-    decoded_len = len(decoded)
-    if decoded_len != SERIALIZED_KEY_LENGTH + 4:
-        raise DecredError(f"decoded private key is wrong length: {decoded_len}")
+    return deserializeExtendedKey(decrypt(cryptoKey, key),netParams)
+
+
+def deserializeExtendedKey(serialized, netParams):
+    serialized_len = len(serialized)
+    if serialized_len != SERIALIZED_KEY_LENGTH + 4:
+        raise DecredError(f"decoded private key is wrong length: {serialized_len}")
 
     # The serialized format is:
     #   version (4) || depth (1) || parent fingerprint (4)) ||
     #   child num (4) || chain code (32) || key data (33) || checksum (4)
 
     # Split the payload and checksum up and ensure the checksum matches.
-    payload = decoded[: decoded_len - 4]
-    included_cksum = decoded[decoded_len - 4 :]
+    payload = serialized[: serialized_len - 4]
+    included_cksum = serialized[serialized_len - 4 :]
     computed_cksum = checksum(payload.b)[:4]
     if included_cksum != computed_cksum:
         raise DecredError("wrong checksum")
